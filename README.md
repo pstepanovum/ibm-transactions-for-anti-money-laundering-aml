@@ -91,21 +91,21 @@ CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_sent, amoun
 - **Role**: Stores bank information.
 - **Keys**: Primary Key (bank_id).
 - **Attributes**: name (name of the bank), country (bank's location).
-- **Indexes**: None specified in current schema.
+- **Indexes**: N/A.
 
 #### LAUNDERING_PATTERN (pattern_id, pattern_name)
 
 - **Role**: Stores known money laundering patterns.
 - **Keys**: Primary Key (pattern_id).
 - **Attributes**: pattern_name (pattern type).
-- **Indexes**: None specified in current schema.
+- **Indexes**: N/A.
 
 #### BANK_ACCOUNT (account_id, type, bank_id)
 
 - **Role**: Links accounts to their banks.
 - **Keys**: Primary Key (account_id), Foreign Key (bank_id → BANK).
 - **Attributes**: type (type of account).
-- **Indexes**: None specified in current schema.
+- **Indexes**: N/A.
 
 #### FINANCIAL_TRANSACTION (transaction_id, timestamp, form_of_payment, source_account, source_bank, dest_account, dest_bank, amount_sent, currency_sent, amount_received, currency_received)
 
