@@ -1,6 +1,9 @@
 import sqlite3
 import csv
 import os
+import re
+import random
+from datetime import datetime
 from utils.utils import (
     log_success, log_info, log_warning, log_error, log_highlight,
     log_progress, print_summary_box, Timer
@@ -76,21 +79,54 @@ def main():
 
         log_info("Populating lookup tables...")
         
+
+        bankNames = ['Chase', 'Barclays', 'Deutsche', 'HSBC', 'Citi', 'Bank of America', 'Mizuho', 'Goldman Sachs']
+        countries = ['USA', 'France', 'UK', 'Germany', 'Russia', 'China', 'Saudi Arabia', 'Japan']
+
         # Insert banks (assuming bank_id as country code, add default name)
         for bank_id in banks:
+            randomBank = random.choice(bankNames)
+            randomCountry = random.choice(countries)
             c.execute("INSERT OR IGNORE INTO BANK (bank_id, name, country) VALUES (?, ?, ?)", 
-                     (bank_id, f"Bank {bank_id}", bank_id[:2]))
+                     (bank_id, randomBank, randomCountry))
         log_success(f"Inserted {len(banks)} banks.")
+
+
 
         # Insert accounts with default type
         account_counter = 0
         for account_id, bank_id in accounts:
+            randomAccountType = random.choice(['Individual', 'Corporate', 'Government'])
             c.execute("INSERT OR IGNORE INTO BANK_ACCOUNT (account_id, type, bank_id) VALUES (?, ?, ?)", 
-                     (account_id, "DEFAULT", bank_id))
+                     (account_id, randomAccountType, bank_id))
             account_counter += 1
             if account_counter % 100 == 0 or account_counter == len(accounts):
                 log_progress(account_counter, len(accounts), "Inserting Accounts", "Complete")
         log_success(f"Inserted {len(accounts)} accounts.")
+
+
+        # Process patterns file
+        log_highlight(f"Reading {txt_file} for laundering patterns...")
+        with open(txt_file, 'r') as f:
+            lines = f.readlines()
+
+
+        pattern_mapping = {
+            'FAN-IN': 11,
+            'FAN-OUT': 12,
+            'GATHER-SCATTER': 13,
+            'SCATTER-GATHER': 14,
+            'RANDOM': 15,
+            'STACK': 16,
+            'BIPARTITE': 17,
+            'CYCLE': 18,
+        }
+
+        for pattern_name, pattern_id in pattern_mapping.items():
+            c.execute("INSERT OR IGNORE INTO LAUNDERING_PATTERN (pattern_id, pattern_name) VALUES (?, ?)", (pattern_id, pattern_name))
+        
+        conn.commit()
+
 
         # Second pass: insert transactions
         log_highlight(f"Reading {csv_file} for transactions...")
@@ -104,6 +140,7 @@ def main():
             row_count = sum(1 for row in csv.reader(csvfile)) - 1  # Exclude header
             csvfile.seek(0)
             next(csv.reader(csvfile))  # Skip header again
+            log_info(f"Processing {row_count} transaction rows from CSV file...")
             
             for i, row in enumerate(reader):
                 if i % 100 == 0 or i == row_count - 1:
@@ -113,7 +150,15 @@ def main():
                     log_warning(f"Skipping invalid row in {csv_file}: {row}")
                     continue
                 try:
-                    timestamp = row[0]  # Assuming format like '2022/09/01 00:20' is SQLite-compatible
+                    timestamp = row[0]
+
+                    try:
+                        correctedDT = datetime.strptime(timestamp.strip(), '%Y/%m/%d %H:%M')
+                    except ValueError as time_e:
+                        log_warning(f"Row {i+2}: Could not parse CSV timestamp '{timestamp}': {time_e}. Skipping row.")
+                        continue
+
+                    timestamp = correctedDT.strftime('%Y-%m-%d %H:%M:%S')
                     source_bank = row[1]
                     source_account = row[2]
                     dest_bank = row[3]
@@ -123,18 +168,19 @@ def main():
                     amount_sent = round(float(row[7]), 2)  # Round to 2 decimal places
                     payment_currency = row[8]
                     form_of_payment = row[9]
+                    pattern_id = random.randint(11, 18)
                     is_laundering = int(row[10])
                     
                     c.execute("""
                         INSERT INTO FINANCIAL_TRANSACTION (
                             timestamp, source_account, source_bank, dest_account, dest_bank,
                             amount_received, currency_received, amount_sent, currency_sent,
-                            form_of_payment
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            form_of_payment, pattern_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         timestamp, source_account, source_bank, dest_account, dest_bank,
                         amount_received, receiving_currency, amount_sent, payment_currency,
-                        form_of_payment
+                        form_of_payment, pattern_id
                     ))
                     transaction_count += 1
                 except (ValueError, KeyError) as e:
@@ -144,63 +190,8 @@ def main():
         conn.commit()
         log_success("Committed transaction data to database.")
 
-        # Process patterns file
-        log_highlight(f"Reading {txt_file} for laundering patterns...")
-        with open(txt_file, 'r') as f:
-            lines = f.readlines()
-        
-        current_pattern = None
-        pattern_id = None
-        pattern_count = 0
-        transaction_pattern_count = 0
-        
-        log_info(f"Processing {len(lines)} lines from patterns file...")
 
-        for i, line in enumerate(lines):
-            if i % 100 == 0 or i == len(lines) - 1:
-                log_progress(i + 1, len(lines), "Processing Patterns", "Complete")
-                
-            line = line.strip()
-            if line.startswith("BEGIN LAUNDERING ATTEMPT"):
-                pattern_name = line.split("-")[1].strip() if "-" in line else line
-                
-                c.execute("INSERT INTO LAUNDERING_PATTERN (pattern_name) VALUES (?)",
-                         (pattern_name,))
-                pattern_id = c.lastrowid
-                current_pattern = pattern_name
-                pattern_count += 1
-                log_info(f"Processing pattern: {pattern_name}")
-            elif line and current_pattern and "," in line:
-                try:
-                    parts = line.split(',')
-                    if len(parts) < 10:
-                        log_warning(f"Skipping invalid pattern transaction line: {line}")
-                        continue
-                    timestamp = parts[0]
-                    source_bank = parts[1]
-                    source_account = parts[2]
-                    dest_bank = parts[3]
-                    dest_account = parts[4]
-                    
-                    c.execute("""
-                        SELECT transaction_id FROM FINANCIAL_TRANSACTION
-                        WHERE timestamp = ? AND source_bank = ? AND source_account = ?
-                        AND dest_bank = ? AND dest_account = ?
-                    """, (timestamp, source_bank, source_account, dest_bank, dest_account))
-                    
-                    result = c.fetchone()
-                    if result:
-                        transaction_id = result[0]
-                        c.execute("INSERT OR IGNORE INTO TRANSACTION_PATTERN (transaction_id, pattern_id) VALUES (?, ?)",
-                                 (transaction_id, pattern_id))
-                        transaction_pattern_count += 1
-                    else:
-                        log_warning(f"No matching transaction found for pattern line: {line}")
-                except Exception as e:
-                    log_error(f"Error processing pattern line {line}: {e}")
 
-        conn.commit()
-        log_success(f"Inserted {pattern_count} patterns and {transaction_pattern_count} transaction-pattern links.")
 
         elapsed_time = timer.elapsed()
         log_highlight(f"Process completed in {elapsed_time:.2f} seconds")
@@ -210,15 +201,21 @@ def main():
             "Banks": len(banks),
             "Accounts": len(accounts),
             "Transactions": transaction_count,
-            "Patterns": pattern_count,
-            "Pattern Links": transaction_pattern_count
+           # "Patterns": pattern_count,
+            #"Pattern Links": transaction_pattern_count
         }
         print_summary_box("AML DETECTION DATABASE POPULATION SUMMARY", summary_data, elapsed_time)
 
+
+        # print(transactions_to_update)
+
     except sqlite3.Error as e:
         log_error(f"Database error: {e}")
+
+
     except Exception as e:
         log_error(f"Unexpected error: {e}")
+
     finally:
         conn.close()
         log_info("Database connection closed.")

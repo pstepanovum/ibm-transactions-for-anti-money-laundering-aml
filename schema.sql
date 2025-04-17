@@ -7,7 +7,7 @@ CREATE TABLE BANK (
 
 -- Create the LAUNDERING_PATTERN table
 CREATE TABLE LAUNDERING_PATTERN (
-    pattern_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_id INTEGER PRIMARY KEY,
     pattern_name TEXT
 );
 
@@ -32,18 +32,11 @@ CREATE TABLE FINANCIAL_TRANSACTION (
     currency_sent TEXT,
     amount_received DECIMAL(20, 2),
     currency_received TEXT,
+    pattern_id INTEGER, 
     FOREIGN KEY (source_account) REFERENCES BANK_ACCOUNT(account_id),
     FOREIGN KEY (source_bank) REFERENCES BANK(bank_id),
     FOREIGN KEY (dest_account) REFERENCES BANK_ACCOUNT(account_id),
-    FOREIGN KEY (dest_bank) REFERENCES BANK(bank_id)
-);
-
--- Create the TRANSACTION_PATTERN junction table
-CREATE TABLE TRANSACTION_PATTERN (
-    transaction_id INTEGER,
-    pattern_id INTEGER,
-    PRIMARY KEY (transaction_id, pattern_id),
-    FOREIGN KEY (transaction_id) REFERENCES FINANCIAL_TRANSACTION(transaction_id),
+    FOREIGN KEY (dest_bank) REFERENCES BANK(bank_id), 
     FOREIGN KEY (pattern_id) REFERENCES LAUNDERING_PATTERN(pattern_id)
 );
 
