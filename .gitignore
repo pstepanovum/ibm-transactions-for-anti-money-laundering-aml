@@ -1,0 +1,16 @@
+public/backup
+public/backup/*
+public/backup/.gitkeep
+public/backup/.gitignore
+public/backup/.gitkeep
+
+public/IBM/
+public/IBM/*
+public/IBM/.gitkeep
+
+data/*
+data/.gitkeep
+data/.gitignore
+
+
+aml_detection.db
