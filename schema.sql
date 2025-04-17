@@ -1,57 +1,44 @@
 -- Create the BANK table
 CREATE TABLE BANK (
     bank_id TEXT PRIMARY KEY,
+    name TEXT,
     country TEXT
-);
-
--- Create the CURRENCY table
-CREATE TABLE CURRENCY (
-    currency_code TEXT PRIMARY KEY
-);
-
--- Create the PAYMENT_METHOD table
-CREATE TABLE PAYMENT_METHOD (
-    method_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    method_name TEXT UNIQUE
 );
 
 -- Create the LAUNDERING_PATTERN table
 CREATE TABLE LAUNDERING_PATTERN (
     pattern_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pattern_name TEXT,
-    pattern_description TEXT
+    pattern_name TEXT
 );
 
--- Create the ACCOUNT table (links accounts to banks)
-CREATE TABLE ACCOUNT (
-    account_id TEXT,
+-- Create the BANK_ACCOUNT table
+CREATE TABLE BANK_ACCOUNT (
+    account_id TEXT PRIMARY KEY,
+    type TEXT,
     bank_id TEXT,
-    PRIMARY KEY (account_id, bank_id),
     FOREIGN KEY (bank_id) REFERENCES BANK(bank_id)
 );
 
--- Create the FINANCIAL_TRANSACTION table (avoiding reserved keyword "TRANSACTION")
+-- Create the FINANCIAL_TRANSACTION table
 CREATE TABLE FINANCIAL_TRANSACTION (
     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp DATETIME,
-    source_account_id TEXT,
-    source_bank_id TEXT,
-    dest_account_id TEXT,
-    dest_bank_id TEXT,
+    form_of_payment TEXT,
+    source_account TEXT,
+    source_bank TEXT,
+    dest_account TEXT,
+    dest_bank TEXT,
+    amount_sent DECIMAL(20, 2),
+    currency_sent TEXT,
     amount_received DECIMAL(20, 2),
-    receiving_currency_code TEXT,
-    amount_paid DECIMAL(20, 2),
-    payment_currency_code TEXT,
-    payment_method_id INTEGER,
-    is_laundering INTEGER,
-    FOREIGN KEY (source_account_id, source_bank_id) REFERENCES ACCOUNT(account_id, bank_id),
-    FOREIGN KEY (dest_account_id, dest_bank_id) REFERENCES ACCOUNT(account_id, bank_id),
-    FOREIGN KEY (receiving_currency_code) REFERENCES CURRENCY(currency_code),
-    FOREIGN KEY (payment_currency_code) REFERENCES CURRENCY(currency_code),
-    FOREIGN KEY (payment_method_id) REFERENCES PAYMENT_METHOD(method_id)
+    currency_received TEXT,
+    FOREIGN KEY (source_account) REFERENCES BANK_ACCOUNT(account_id),
+    FOREIGN KEY (source_bank) REFERENCES BANK(bank_id),
+    FOREIGN KEY (dest_account) REFERENCES BANK_ACCOUNT(account_id),
+    FOREIGN KEY (dest_bank) REFERENCES BANK(bank_id)
 );
 
--- Create the TRANSACTION_PATTERN table (links transactions to specific laundering patterns)
+-- Create the TRANSACTION_PATTERN junction table
 CREATE TABLE TRANSACTION_PATTERN (
     transaction_id INTEGER,
     pattern_id INTEGER,
@@ -62,7 +49,6 @@ CREATE TABLE TRANSACTION_PATTERN (
 
 -- Create indexes for performance optimization
 CREATE INDEX idx_transaction_timestamp ON FINANCIAL_TRANSACTION(timestamp);
-CREATE INDEX idx_transaction_laundering ON FINANCIAL_TRANSACTION(is_laundering);
-CREATE INDEX idx_transaction_source ON FINANCIAL_TRANSACTION(source_account_id, source_bank_id);
-CREATE INDEX idx_transaction_dest ON FINANCIAL_TRANSACTION(dest_account_id, dest_bank_id);
-CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_paid, amount_received);
+CREATE INDEX idx_transaction_source ON FINANCIAL_TRANSACTION(source_account, source_bank);
+CREATE INDEX idx_transaction_dest ON FINANCIAL_TRANSACTION(dest_account, dest_bank);
+CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_sent, amount_received);

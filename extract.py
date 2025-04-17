@@ -32,9 +32,8 @@ def main():
 
         # First pass: collect unique values for lookup tables
         banks = set()
-        currencies = set()
-        payment_methods = set()
         accounts = set()
+        payment_methods = set()
 
         log_info(f"Reading {csv_file} for lookup values...")
         with open(csv_file, 'r') as csvfile:
@@ -64,51 +63,34 @@ def main():
                 source_account = row[2]
                 dest_bank = row[3]
                 dest_account = row[4]
-                receiving_currency = row[6]
-                payment_currency = row[8]
                 payment_format = row[9]
                 
                 banks.add(source_bank)
                 banks.add(dest_bank)
-                currencies.add(receiving_currency)
-                currencies.add(payment_currency)
                 payment_methods.add(payment_format)
                 accounts.add((source_account, source_bank))
                 accounts.add((dest_account, dest_bank))
 
-        log_success(f"Found {len(banks)} unique banks, {len(currencies)} currencies, "
-                   f"{len(payment_methods)} payment methods, {len(accounts)} accounts.")
+        log_success(f"Found {len(banks)} unique banks, {len(payment_methods)} payment methods, "
+                   f"{len(accounts)} accounts.")
 
         log_info("Populating lookup tables...")
         
-        # Insert banks
+        # Insert banks (assuming bank_id as country code, add default name)
         for bank_id in banks:
-            c.execute("INSERT OR IGNORE INTO BANK (bank_id) VALUES (?)", (bank_id,))
+            c.execute("INSERT OR IGNORE INTO BANK (bank_id, name, country) VALUES (?, ?, ?)", 
+                     (bank_id, f"Bank {bank_id}", bank_id[:2]))
         log_success(f"Inserted {len(banks)} banks.")
 
-        # Insert currencies
-        for currency_code in currencies:
-            c.execute("INSERT OR IGNORE INTO CURRENCY (currency_code) VALUES (?)", (currency_code,))
-        log_success(f"Inserted {len(currencies)} currencies.")
-
-        # Insert payment methods
-        for method_name in payment_methods:
-            c.execute("INSERT OR IGNORE INTO PAYMENT_METHOD (method_name) VALUES (?)", (method_name,))
-        log_success(f"Inserted {len(payment_methods)} payment methods.")
-
-        # Insert accounts
+        # Insert accounts with default type
         account_counter = 0
         for account_id, bank_id in accounts:
-            c.execute("INSERT OR IGNORE INTO ACCOUNT (account_id, bank_id) VALUES (?, ?)", (account_id, bank_id))
+            c.execute("INSERT OR IGNORE INTO BANK_ACCOUNT (account_id, type, bank_id) VALUES (?, ?, ?)", 
+                     (account_id, "DEFAULT", bank_id))
             account_counter += 1
             if account_counter % 100 == 0 or account_counter == len(accounts):
                 log_progress(account_counter, len(accounts), "Inserting Accounts", "Complete")
         log_success(f"Inserted {len(accounts)} accounts.")
-
-        # Get payment method ID mapping
-        c.execute("SELECT method_id, method_name FROM PAYMENT_METHOD")
-        payment_method_map = {name: id for id, name in c.fetchall()}
-        log_info("Created payment method mapping.")
 
         # Second pass: insert transactions
         log_highlight(f"Reading {csv_file} for transactions...")
@@ -138,23 +120,21 @@ def main():
                     dest_account = row[4]
                     amount_received = round(float(row[5]), 2)  # Round to 2 decimal places
                     receiving_currency = row[6]
-                    amount_paid = round(float(row[7]), 2)  # Round to 2 decimal places
+                    amount_sent = round(float(row[7]), 2)  # Round to 2 decimal places
                     payment_currency = row[8]
-                    payment_format = row[9]
+                    form_of_payment = row[9]
                     is_laundering = int(row[10])
-                    
-                    payment_method_id = payment_method_map[payment_format]
                     
                     c.execute("""
                         INSERT INTO FINANCIAL_TRANSACTION (
-                            timestamp, source_account_id, source_bank_id, dest_account_id, dest_bank_id,
-                            amount_received, receiving_currency_code, amount_paid, payment_currency_code,
-                            payment_method_id, is_laundering
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            timestamp, source_account, source_bank, dest_account, dest_bank,
+                            amount_received, currency_received, amount_sent, currency_sent,
+                            form_of_payment
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         timestamp, source_account, source_bank, dest_account, dest_bank,
-                        amount_received, receiving_currency, amount_paid, payment_currency,
-                        payment_method_id, is_laundering
+                        amount_received, receiving_currency, amount_sent, payment_currency,
+                        form_of_payment
                     ))
                     transaction_count += 1
                 except (ValueError, KeyError) as e:
@@ -182,11 +162,10 @@ def main():
                 
             line = line.strip()
             if line.startswith("BEGIN LAUNDERING ATTEMPT"):
-                pattern_name = line.split("-")[1].strip()
-                pattern_description = line.split(":")[1].strip() if ":" in line else ""
+                pattern_name = line.split("-")[1].strip() if "-" in line else line
                 
-                c.execute("INSERT INTO LAUNDERING_PATTERN (pattern_name, pattern_description) VALUES (?, ?)",
-                         (pattern_name, pattern_description))
+                c.execute("INSERT INTO LAUNDERING_PATTERN (pattern_name) VALUES (?)",
+                         (pattern_name,))
                 pattern_id = c.lastrowid
                 current_pattern = pattern_name
                 pattern_count += 1
@@ -205,8 +184,8 @@ def main():
                     
                     c.execute("""
                         SELECT transaction_id FROM FINANCIAL_TRANSACTION
-                        WHERE timestamp = ? AND source_bank_id = ? AND source_account_id = ?
-                        AND dest_bank_id = ? AND dest_account_id = ?
+                        WHERE timestamp = ? AND source_bank = ? AND source_account = ?
+                        AND dest_bank = ? AND dest_account = ?
                     """, (timestamp, source_bank, source_account, dest_bank, dest_account))
                     
                     result = c.fetchone()
@@ -229,8 +208,6 @@ def main():
         # Display summary box
         summary_data = {
             "Banks": len(banks),
-            "Currencies": len(currencies),
-            "Payment Methods": len(payment_methods),
             "Accounts": len(accounts),
             "Transactions": transaction_count,
             "Patterns": pattern_count,
