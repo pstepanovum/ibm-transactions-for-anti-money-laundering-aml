@@ -234,5 +234,3 @@ These indexes improve performance for:
 - Source account lookups (source composite index)
 - Destination account lookups (destination composite index)
 - Amount-based filtering (amounts composite index)
-
-Periodically analyze query performance to adjust indexes.
