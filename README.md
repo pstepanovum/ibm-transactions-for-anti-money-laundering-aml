@@ -25,85 +25,114 @@ This project fulfills the requirements of the ECE467 / CSC423 Term Project (Stag
 
 ## Database Schema Overview
 
-The database is designed in Third Normal Form (3NF) to ensure data integrity and eliminate redundancy. Below is the final relational schema (post-simplification) with roles, keys, and attributes:
+The database is implemented according to the following schema:
+
+```sql
+-- Create the BANK table
+CREATE TABLE BANK (
+    bank_id TEXT PRIMARY KEY,
+    name TEXT,
+    country TEXT
+);
+
+-- Create the LAUNDERING_PATTERN table
+CREATE TABLE LAUNDERING_PATTERN (
+    pattern_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_name TEXT
+);
+
+-- Create the BANK_ACCOUNT table
+CREATE TABLE BANK_ACCOUNT (
+    account_id TEXT PRIMARY KEY,
+    type TEXT,
+    bank_id TEXT,
+    FOREIGN KEY (bank_id) REFERENCES BANK(bank_id)
+);
+
+-- Create the FINANCIAL_TRANSACTION table
+CREATE TABLE FINANCIAL_TRANSACTION (
+    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME,
+    form_of_payment TEXT,
+    source_account TEXT,
+    source_bank TEXT,
+    dest_account TEXT,
+    dest_bank TEXT,
+    amount_sent DECIMAL(20, 2),
+    currency_sent TEXT,
+    amount_received DECIMAL(20, 2),
+    currency_received TEXT,
+    FOREIGN KEY (source_account) REFERENCES BANK_ACCOUNT(account_id),
+    FOREIGN KEY (source_bank) REFERENCES BANK(bank_id),
+    FOREIGN KEY (dest_account) REFERENCES BANK_ACCOUNT(account_id),
+    FOREIGN KEY (dest_bank) REFERENCES BANK(bank_id)
+);
+
+-- Create the TRANSACTION_PATTERN junction table
+CREATE TABLE TRANSACTION_PATTERN (
+    transaction_id INTEGER,
+    pattern_id INTEGER,
+    PRIMARY KEY (transaction_id, pattern_id),
+    FOREIGN KEY (transaction_id) REFERENCES FINANCIAL_TRANSACTION(transaction_id),
+    FOREIGN KEY (pattern_id) REFERENCES LAUNDERING_PATTERN(pattern_id)
+);
+
+-- Create indexes for performance optimization
+CREATE INDEX idx_transaction_timestamp ON FINANCIAL_TRANSACTION(timestamp);
+CREATE INDEX idx_transaction_source ON FINANCIAL_TRANSACTION(source_account, source_bank);
+CREATE INDEX idx_transaction_dest ON FINANCIAL_TRANSACTION(dest_account, dest_bank);
+CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_sent, amount_received);
+```
 
 ### Core Tables
 
-#### BANK (bank_id, bank_name, country)
+#### BANK (bank_id, name, country)
 
 - **Role**: Stores bank information.
-- **Keys**: Primary Key (bank_id), Unique (bank_name, country).
-- **Attributes**: bank_name (name of the bank), country (bank's location).
-- **Size**: ~100 tuples.
-- **Indexes**: Index on bank_name for query performance.
+- **Keys**: Primary Key (bank_id).
+- **Attributes**: name (name of the bank), country (bank's location).
+- **Indexes**: None specified in current schema.
 
-#### CURRENCY (currency_id, currency_code)
+#### LAUNDERING_PATTERN (pattern_id, pattern_name)
 
-- **Role**: Stores currency types (e.g., USD, EUR).
-- **Keys**: Primary Key (currency_id), Unique (currency_code).
-- **Attributes**: currency_code (ISO currency code).
-- **Size**: ~20 tuples.
-- **Indexes**: None.
+- **Role**: Stores known money laundering patterns.
+- **Keys**: Primary Key (pattern_id).
+- **Attributes**: pattern_name (pattern type).
+- **Indexes**: None specified in current schema.
 
-#### PAYMENT_METHOD (method_id, method_name)
-
-- **Role**: Stores transaction payment methods (e.g., wire, cash).
-- **Keys**: Primary Key (method_id), Unique (method_name).
-- **Attributes**: method_name (payment method description).
-- **Size**: ~10 tuples.
-- **Indexes**: None.
-
-#### ACCOUNT (account_id, bank_id, account_number)
+#### BANK_ACCOUNT (account_id, type, bank_id)
 
 - **Role**: Links accounts to their banks.
 - **Keys**: Primary Key (account_id), Foreign Key (bank_id → BANK).
-- **Attributes**: account_number (unique account identifier).
-- **Size**: ~10,000 tuples.
-- **Indexes**: Index on account_number for transaction lookups.
+- **Attributes**: type (type of account).
+- **Indexes**: None specified in current schema.
 
-#### FINANCIAL_TRANSACTION (transaction_id, source_account_id, dest_account_id, currency_id, method_id, amount, timestamp, is_laundering)
+#### FINANCIAL_TRANSACTION (transaction_id, timestamp, form_of_payment, source_account, source_bank, dest_account, dest_bank, amount_sent, currency_sent, amount_received, currency_received)
 
 - **Role**: Stores transaction details.
-- **Keys**: Primary Key (transaction_id), Foreign Keys (source_account_id, dest_account_id → ACCOUNT, currency_id → CURRENCY, method_id → PAYMENT_METHOD).
-- **Attributes**: amount (transaction value), timestamp (transaction time), is_laundering (flag for suspicious activity).
-- **Size**: ~500,000 tuples.
-- **Indexes**: Indexes on timestamp, is_laundering, source_account_id, dest_account_id.
-
-#### LAUNDERING_PATTERN (pattern_id, pattern_name, description)
-
-- **Role**: Stores known money laundering patterns.
-- **Keys**: Primary Key (pattern_id), Unique (pattern_name).
-- **Attributes**: pattern_name (pattern type), description (pattern details).
-- **Size**: ~50 tuples.
-- **Indexes**: None.
+- **Keys**: Primary Key (transaction_id), Foreign Keys (source_account, dest_account → BANK_ACCOUNT, source_bank, dest_bank → BANK).
+- **Attributes**: timestamp (transaction time), form_of_payment (payment method), amount_sent/received (transaction values), currency_sent/received (currency types).
+- **Indexes**: Indexes on timestamp, source_account and source_bank, dest_account and dest_bank, amount_sent and amount_received.
 
 #### TRANSACTION_PATTERN (transaction_id, pattern_id)
 
 - **Role**: Links transactions to detected laundering patterns.
 - **Keys**: Primary Key (transaction_id, pattern_id), Foreign Keys (transaction_id → FINANCIAL_TRANSACTION, pattern_id → LAUNDERING_PATTERN).
 - **Attributes**: None beyond keys.
-- **Size**: ~1,000 tuples.
-- **Indexes**: Composite index on (transaction_id, pattern_id).
+- **Indexes**: Composite primary key serves as index.
 
 ### Schema Advantages
 
-- **Normalization**: Eliminates redundancy and ensures data consistency.
+- **Normalization**: Reduces redundancy and ensures data consistency.
 - **Foreign Keys**: Enforces referential integrity.
 - **Indexes**: Optimizes query performance for frequent joins and filters.
 - **Scalability**: Supports complex pattern detection for money laundering.
 
-## Entity-Relationship (ER) Diagram
-
-The final ER diagram (post-simplification) is included in REPORT.pdf. Entities (e.g., BANK, ACCOUNT) are in UPPER CASE, relationships in UPPER CASE, and attributes in lower case. The diagram is provided in vector PDF format for clarity.
-
-
 ## Quick Start
 
 ```bash
-
 chmod +x setup.sh
 ./setup.sh
-
 ```
 
 ## Data Import Process
@@ -119,9 +148,7 @@ sqlite3 aml_detection.db < schema.sql
 The HI-Small_Trans.csv dataset is processed to:
 
 - Extract unique banks → BANK records.
-- Extract unique currencies → CURRENCY records.
-- Extract unique payment methods → PAYMENT_METHOD records.
-- Extract unique accounts → ACCOUNT records.
+- Extract unique accounts → BANK_ACCOUNT records.
 - Import transactions → FINANCIAL_TRANSACTION records.
 
 ```bash
@@ -132,7 +159,7 @@ python extract.py
 
 The HI-Small_Patterns.txt file is processed to:
 
-- Extract pattern types and descriptions → LAUNDERING_PATTERN records.
+- Extract pattern types → LAUNDERING_PATTERN records.
 - Link transactions to patterns → TRANSACTION_PATTERN records.
 
 ## User Views
@@ -154,12 +181,12 @@ Three views are designed for distinct user roles, each providing tailored insigh
 ### FIUCurrencyExchangeView
 
 - **Purpose**: Analyzes currency exchanges for potential value manipulation.
-- **Details**: Focuses on FINANCIAL_TRANSACTION and CURRENCY to detect abnormal exchange rates.
+- **Details**: Focuses on FINANCIAL_TRANSACTION to detect abnormal exchange rates.
 - **Why Interesting**: Critical for identifying layering in money laundering schemes.
 
 ## SQL Queries
 
-Ten complex SQL queries are implemented in analysis_queries.sql, each involving joins, aggregates, and returning ≤50 tuples. Examples include:
+Ten complex SQL queries should be implemented in analysis_queries.sql, each involving joins, aggregates, and returning ≤50 tuples. Examples include:
 
 1. **Fan-out Pattern Detection**: Identifies accounts sending to multiple recipients in a short timeframe.
 2. **Cyclic Transaction Detection**: Detects circular money flows (A→B→C→A).
@@ -172,41 +199,40 @@ Ten complex SQL queries are implemented in analysis_queries.sql, each involving 
 9. **Smurfing Pattern Detection**: Identifies multiple sources sending to one destination.
 10. **Unusual Transaction Timing Analysis**: Detects transactions at odd hours.
 
-Each query is documented with a .www prefix in SQL.sqlite to display results in browser tabs. Run:
+Each query will be documented with a .www prefix in SQL.sqlite to display results in browser tabs. Run:
 
 ```bash
 sqlite3 aml_detection.db
 .read analysis_queries.sql
 ```
 
-## Database Simplification
+## Database Optimization
 
-Unused attributes (e.g., redundant account details) were removed post-query finalization to optimize storage and performance. The final schema reflects only attributes used in views and queries.
+Indexes are created on:
+
+- FINANCIAL_TRANSACTION: timestamp, source_account and source_bank (composite), dest_account and dest_bank (composite), amount_sent and amount_received (composite).
+- TRANSACTION_PATTERN: Composite primary key (transaction_id, pattern_id) serves as an index.
+
+Periodically analyze query performance to adjust indexes.
 
 ## System Maintenance
 
 ### Index Optimization
 
-Indexes are created on:
+The current schema includes the following indexes for optimized query performance:
 
-- FINANCIAL_TRANSACTION: timestamp, is_laundering, source_account_id, dest_account_id.
-- ACCOUNT: account_number.
-- TRANSACTION_PATTERN: Composite (transaction_id, pattern_id).
+```sql
+CREATE INDEX idx_transaction_timestamp ON FINANCIAL_TRANSACTION(timestamp);
+CREATE INDEX idx_transaction_source ON FINANCIAL_TRANSACTION(source_account, source_bank);
+CREATE INDEX idx_transaction_dest ON FINANCIAL_TRANSACTION(dest_account, dest_bank);
+CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_sent, amount_received);
+```
+
+These indexes improve performance for:
+
+- Time-based queries (timestamp index)
+- Source account lookups (source composite index)
+- Destination account lookups (destination composite index)
+- Amount-based filtering (amounts composite index)
 
 Periodically analyze query performance to adjust indexes.
-
-### Backup Strategy
-
-Regular backups of aml_detection.db are recommended to prevent data loss.
-
-## Deliverables
-
-Submitted on Blackboard by 4/18/2025:
-
-- **/REPORT.md**: Includes database description, final ER diagram, relational schema, view descriptions, query documentation, and dataset URL.
-- **DATABASE.db**: SQLite database with tables, indexes, and views.
-- **SQL.sqlite**: Documented SQL code with .www prefixes for browser display.
-
-## Demo Preparation
-
-The team is prepared for a 10-minute interactive demo on 4/17/2025 (3:30pm–6:10pm) in MEB 419. The database and queries will be showcased live. A slot is reserved at https://gotsman.youcanbook.me.
