@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Simple script to set up and run the AML detection database process
-
 # Check for data directory and required files
 echo "Checking data folder and required files..."
 
