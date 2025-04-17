@@ -107,13 +107,6 @@ CREATE INDEX idx_transaction_amounts ON FINANCIAL_TRANSACTION(amount_sent, amoun
 - **Attributes**: timestamp (transaction time), form_of_payment (payment method), amount_sent/received (transaction values), currency_sent/received (currency types).
 - **Indexes**: Indexes on timestamp, source_account and source_bank, dest_account and dest_bank, amount_sent and amount_received.
 
-#### TRANSACTION_PATTERN (transaction_id, pattern_id)
-
-- **Role**: Links transactions to detected laundering patterns.
-- **Keys**: Primary Key (transaction_id, pattern_id), Foreign Keys (transaction_id → FINANCIAL_TRANSACTION, pattern_id → LAUNDERING_PATTERN).
-- **Attributes**: None beyond keys.
-- **Indexes**: Composite primary key serves as index.
-
 ### Schema Advantages
 
 - **Normalization**: Reduces redundancy and ensures data consistency.
