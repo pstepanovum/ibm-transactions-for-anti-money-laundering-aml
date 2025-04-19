@@ -29,8 +29,8 @@ def main():
 
     try:
         # Connect to the database
-        conn = sqlite3.connect('aml_detection.db')
-        log_success("Connected to database: aml_detection.db")
+        conn = sqlite3.connect('DATABASE.db')
+        log_success("Connected to database: DATABASE.db")
         c = conn.cursor()
 
         # First pass: collect unique values for lookup tables

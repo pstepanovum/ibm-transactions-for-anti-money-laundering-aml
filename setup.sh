@@ -26,7 +26,7 @@ echo "Data folder and required files found. Continuing setup..."
 
 # Create database schema
 echo "Creating database schema..."
-sqlite3 aml_detection.db < schema.sql
+sqlite3 DATABASE.db < schema.sql
 
 # Run data extraction
 echo "Running data extraction script..."

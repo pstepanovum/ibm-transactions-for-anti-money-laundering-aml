@@ -126,7 +126,7 @@ chmod +x setup.sh
 ### Step 1: Create the Database
 
 ```bash
-sqlite3 aml_detection.db < schema.sql
+sqlite3 DATABASE.db < schema.sql
 ```
 
 ### Step 2: Import Transaction Data
@@ -188,7 +188,7 @@ Ten complex SQL queries should be implemented in analysis_queries.sql, each invo
 Each query will be documented with a .www prefix in SQL.sqlite to display results in browser tabs. Run:
 
 ```bash
-sqlite3 aml_detection.db
+sqlite3 DATABASE.db
 .read analysis_queries.sql
 ```
 

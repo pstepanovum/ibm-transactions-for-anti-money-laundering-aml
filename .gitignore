@@ -13,4 +13,4 @@ data/.gitkeep
 data/.gitignore
 
 
-aml_detection.db
+DATABASE.db
