@@ -250,23 +250,29 @@ ORDER BY
     rate DESC;
 
 .www
--- 10. Which accounts are both sources AND destinations of illicit money?
--- Purpose: Identify potential money laundering intermediaries or money mules
--- Techniques: Set operation (INTERSECT), subquery, grouping, and counting
--- Business Logic: Finds accounts that both send and receive suspicious funds, indicating potential layering activity
-SELECT 
-    account_id,
-    COUNT(*) as total_suspicious_transactions
-FROM (
-    SELECT source_account as account_id
-    FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10
-    
-    INTERSECT
-    
-    SELECT dest_account as account_id
-    FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10
-)
-GROUP BY account_id
-ORDER BY total_suspicious_transactions DESC;
+-- 10. Track the total transaction count and total illicit transaction count of source-destination pairs
+-- Purpose: Analyze transaction patterns between account pairs to identify high-risk relationships
+-- Techniques: Aggregation, conditional counting, and sorting
+-- Business Logic: Counts total and illicit transactions for each source-destination pair to assess risk
+-- Note: transSADAPID(source_account, dest_account, pattern_id) 
+
+SELECT
+    source_account,
+    dest_account,
+    COUNT(*) AS transaction_count,
+    SUM(CASE
+            WHEN (pattern_id = 11 or pattern_id = 12 or pattern_id = 13 
+            or pattern_id = 14 or pattern_id = 15 or pattern_id = 16 or pattern_id = 17 or pattern_id = 18) THEN 1
+            ELSE 0                                                
+        END) AS illicit_transaction_count  
+FROM
+    FINANCIAL_TRANSACTION
+WHERE
+    source_account IS NOT NULL        
+    AND dest_account IS NOT NULL      
+GROUP BY
+    source_account,
+    dest_account                      
+ORDER BY
+    illicit_transaction_count  DESC            
+LIMIT 20;    
