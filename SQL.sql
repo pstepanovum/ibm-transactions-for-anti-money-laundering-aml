@@ -73,13 +73,13 @@ LIMIT 5;
 WITH IllicitTransactionAccounts AS (
     SELECT DISTINCT source_account AS account_id
     FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10 AND source_account IS NOT NULL
+    WHERE (pattern_id = 11 or pattern_id = 12 or pattern_id = 13 or pattern_id = 14 or pattern_id = 15 or pattern_id = 16 or pattern_id = 17 or pattern_id = 18) AND source_account IS NOT NULL
 
     UNION
 
     SELECT DISTINCT dest_account AS account_id
     FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10 AND dest_account IS NOT NULL
+    WHERE (pattern_id = 11 or pattern_id = 12 or pattern_id = 13 or pattern_id = 14 or pattern_id = 15 or pattern_id = 16 or pattern_id = 17 or pattern_id = 18) AND dest_account IS NOT NULL
 
 ), AccountTypeStats AS (
     SELECT
@@ -103,7 +103,7 @@ SELECT
         WHEN total_accounts > 0 THEN
             CAST(implicated_accounts AS REAL) * 100.0 / total_accounts
         ELSE
-            0.0 
+            0.0
     END AS implication_rate_percent
 FROM
     AccountTypeStats
@@ -111,22 +111,22 @@ ORDER BY
     implication_rate_percent DESC;
 
 .www
--- 4. List the three countries with the most launderers in alphabetical order
+-- 4. List the five countries with the most launderers in alphabetical order
 -- Purpose: Identify geographic hotspots for money laundering activity
 -- Techniques: Multiple CTEs, DISTINCT to avoid duplicates, UNION, multiple JOINs, sorting and limiting
--- Business Logic: Counts unique accounts involved in laundering per country, then finds top 3
+-- Business Logic: Counts unique accounts involved in laundering per country, then finds top 5
 WITH LaunderingAccounts AS (
-    SELECT DISTINCT source_account AS account_id
+    SELECT source_account AS account_id
     FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10 AND source_account IS NOT NULL
+    WHERE (pattern_id = 11 or pattern_id = 12 or pattern_id = 13 or pattern_id = 14 or pattern_id = 15 or pattern_id = 16 or pattern_id = 17 or pattern_id = 18) AND source_account IS NOT NULL
 
-    UNION 
+    UNION -- combine all source and dest accounts involved in laundering (pattern_id != 10)
 
-    SELECT DISTINCT dest_account AS account_id
+    SELECT dest_account AS account_id
     FROM FINANCIAL_TRANSACTION
-    WHERE pattern_id != 10 AND dest_account IS NOT NULL
+    WHERE (pattern_id = 11 or pattern_id = 12 or pattern_id = 13 or pattern_id = 14 or pattern_id = 15 or pattern_id = 16 or pattern_id = 17 or pattern_id = 18) AND dest_account IS NOT NULL
 
-), CountryLaundererCounts AS (
+), CountryLaundererCounts AS ( -- counting unique laundering accounts by country
     SELECT
         B.country,
         COUNT(DISTINCT BA.account_id) AS unique_launderer_accounts
@@ -141,23 +141,16 @@ WITH LaunderingAccounts AS (
     GROUP BY
         B.country
 
-), Top3CountriesByCount AS (
-    SELECT
-        country,
-        unique_launderer_accounts
-    FROM
-        CountryLaundererCounts
-    ORDER BY
-        unique_launderer_accounts DESC
-    LIMIT 3
 )
+-- ordering
 SELECT
     country,
     unique_launderer_accounts
 FROM
-    Top3CountriesByCount
+    CountryLaundererCounts
 ORDER BY
-    country ASC;
+    unique_launderer_accounts DESC    
+LIMIT 5;
 
 .www
 -- 5. On what day and at what time did the most laundering occur?
@@ -176,7 +169,7 @@ GROUP BY
     timestamp
 ORDER BY
     launderingInstanceCounter DESC
-LIMIT 1;
+LIMIT 20;
 
 .www
 -- 6. List the names of the laundering patterns in order of how often they occur from most to least
@@ -212,7 +205,7 @@ GROUP BY
     form_of_payment
 ORDER BY
     rate DESC
-LIMIT 1;
+LIMIT 5;
 
 .www
 -- 8. What is the total amount of money sent between September 3rd and September 8th?
