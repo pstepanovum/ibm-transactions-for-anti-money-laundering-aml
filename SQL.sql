@@ -26,27 +26,25 @@ ORDER BY
     timestamp DESC;
 
 .www
--- 2. Which bank has the highest rate of illicit activity in their transactions?
+-- 2. Which bank has the most illicit_transactions?
 -- Purpose: Identify banks that may require enhanced compliance monitoring or investigation
 -- Techniques: Nested queries, UNION ALL, CASE statements, JOINs, aggregation with percentage calculation
 -- Business Logic: Considers both source and destination transactions, excludes pattern_id = 10 (normal transactions)
 SELECT
     B.name AS bank_name,
-    AggregatedRates.illicit_rate,
     AggregatedRates.illicit_transactions,
     AggregatedRates.total_transactions
 FROM (
     SELECT
         bank_id,
         COUNT(*) AS total_transactions,
-        SUM(is_illicit) AS illicit_transactions,
-        CAST(SUM(is_illicit) AS REAL) * 100.0 / COUNT(*) AS illicit_rate
+        SUM(is_illicit) AS illicit_transactions
     FROM (
         SELECT
             source_bank AS bank_id,
             CASE
                 WHEN pattern_id != 10 THEN 1
-                ELSE 0 
+                ELSE 0
             END AS is_illicit
         FROM FINANCIAL_TRANSACTION
 
@@ -59,13 +57,13 @@ FROM (
                 ELSE 0
             END AS is_illicit
         FROM FINANCIAL_TRANSACTION
-    ) AS BankParticipationData 
+    ) AS BankParticipationData
     GROUP BY bank_id
     HAVING COUNT(*) > 0
-) AS AggregatedRates 
+) AS AggregatedRates
 JOIN BANK B ON AggregatedRates.bank_id = B.bank_id
-ORDER BY AggregatedRates.illicit_rate DESC
-LIMIT 1;
+ORDER BY AggregatedRates.illicit_transactions DESC
+LIMIT 5;
 
 .www
 -- 3. What type of accounts are more often implicated in laundering: individuals or companies?
